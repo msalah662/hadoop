@@ -28,6 +28,8 @@ sudo sysctl -p
 #Download Hadoop
 wget -c https://downloads.apache.org/hadoop/common/stable2/hadoop-2.10.1.tar.gz
 
+echo "check-certificate = off" >> ~/.wgetrc
+
 #Extract and Install Hadoop tar ball
 tar -xzvf hadoop-2.10.1.tar.gz
 sudo mv hadoop-2.10.1 /usr/local/hadoop
