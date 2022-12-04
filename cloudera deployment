@@ -1,0 +1,464 @@
+Prerequisites of Hadoop
+
+# Create a Hadoop user for accessing HDFS
+sudo addgroup ubuntu
+sudo adduser --ingroup ubuntu ubuntu
+sudo adduser ubuntu sudo
+sudo su ubuntu
+
+$ echo "$PATH"
+$ printf "%s\n" "$PATH"
+$ export PATH=$PATH:/bin:/usr/local/bin
+   export PATH="/usr/bin:$PATH"
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/usr/X11/bin
+# Install Java 8
+Ubuntu
+java -version
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install openjdk-8-jdk -y
+
+Centos
+yum install java-1.8.0-openjdk
+java -version
+
+
+# Set Enviornment Variable
+readlink -f $(which java)
+cat >>$HOME/.bashrc <<EOL
+
+# -- HADOOP ENVIRONMENT VARIABLES START -- #
+export JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/jre/
+export HADOOP_HOME=/usr/local/hadoop
+export PATH=\$PATH:\$HADOOP_HOME/bin
+export PATH=\$PATH:\$HADOOP_HOME/sbin
+export PATH=\$PATH:/usr/local/hadoop/bin/
+export HADOOP_MAPRED_HOME=\$HADOOP_HOME
+export HADOOP_COMMON_HOME=\$HADOOP_HOME
+export HADOOP_HDFS_HOME=\$HADOOP_HOME
+export YARN_HOME=\$HADOOP_HOME
+export HADOOP_CONF_DIR=/usr/local/hadoop/etc/hadoop
+export PDSH_RCMD_TYPE=ssh
+# -- HADOOP ENVIRONMENT VARIABLES END -- #
+EOL
+
+ exec bash
+
+
+# Disable SELINUX -----------------disabled security ( hadoop has own security )
+setenforce 0
+
+cat >/etc/selinux/config<<EOF
+SELINUX=disabled
+SELINUXTYPE=targeted
+SETLOCALDEFS=0
+EOF
+
+#Disable IPV6 
+cat /proc/sys/net/ipv6/conf/all/disable_ipv6
+sudo sysctl –p
+
+sudo su -c 'cat >>/etc/sysctl.conf <<EOL
+net.ipv6.conf.all.disable_ipv6 =1
+net.ipv6.conf.default.disable_ipv6 =1
+net.ipv6.conf.lo.disable_ipv6 =1
+EOL'
+
+#Disable FireWall iptables
+sudo iptables -L -n -v 
+sudo iptables-save > firewall.rules 
+The Uncomplicated Firewall or ufw is the configuration tool for iptables that comes by default on 
+
+Ubuntu
+sudo ufw status verbose 
+sudo ufw disable
+sudo ufw status verbose
+
+#Disabling Transparent Hugepage Compaction
+
+#Red Hat/CentOS: /sys/kernel/mm/redhat_transparent_hugepage/defrag
+
+#Ubuntu/Debian, OEL, SLES: /sys/kernel/mm/transparent_hugepage/defrag
+
+cat /sys/kernel/mm/transparent_hugepage/defrag
+sudo sed -i '/exit 0/d' /etc/rc.local
+
+sudo su -c 'cat >>/etc/rc.local <<EOL
+if test -f /sys/kernel/mm/transparent_hugepage/enabled; then
+  echo never > /sys/kernel/mm/transparent_hugepage/enabled
+fi
+if test -f /sys/kernel/mm/transparent_hugepage/defrag; then
+   echo never > /sys/kernel/mm/transparent_hugepage/defrag 
+fi
+exit 0
+EOL'
+sudo -i	
+source /etc/rc.local
+======================================================== New steps for THP
+Follow these steps  for THP issue in sequence
+
+Sudo su  -     If not on root user
+
+vi /etc/rc.d/rc.local
+
+Put below values in that 
+
+  cat >>/etc/rc.d/rc.local<<EOL
+echo never > /sys/kernel/mm/transparent_hugepage/enabled
+echo never > /sys/kernel/mm/transparent_hugepage/defrag 
+EOL
+
+chmod +x /etc/rc.d/rc.local
+source /etc/rc.d/rc.local
+
+Restart
+================================================================
+# Set Swappiness--------------------------( memory management )
+sudo sysctl -a | grep vm.swappiness
+sudo su -c 'cat >>/etc/sysctl.conf <<EOL
+'vm.swappiness=0'
+EOL'
+sudo sysctl -p
+
+# Configure NTP ---------------------------( set time zone )
+timedatectl status
+timedatectl list-timezones
+timedatectl list-timezones | grep Asia/Kolkata
+sudo timedatectl set-timezone Asia/Kolkata
+timedatectl status
+sudo ntpq -p
+sudo apt-get install ntp
+timedatectl status
+sudo nano /etc/ntp.conf
+
+# Root Reserved Space------------------------------------(manage system memory space )
+mkfs.ext4 -m 0 /dev/xvda1 ( filesystem is not suppose to be mounted)
+sudo file -sL /dev/xvda1
+lsblk
+sudo tune2fs -m 0 /dev/xvda1
+
+wget https://archive.cloudera.com/cm7/7.4.4/cloudera-manager-installer.bin
+chmod +x cloudera-manager-installer.bin
+./cloudera-manager-installer.bin
+
+lsb_release -a
+
+**************************************** pre- requisite end ************************************************
+
+Search - archive.cloudera.com/cm7/
+Select linux version (redhat 7 / yum / repo file)
+Cd /etc/yum
+Ls
+Copy name repo file and create file 
+Vi cloudera-manager.repo
+
+   Edit content on this file -    [cloudera-manager]
+	name=Cloudera Manager 7.4.4
+	baseurl=https://archive.cloudera.com/cm7/7.4.4/redhat7/yum/
+	gpgkey=https://archive.cloudera.com/cm7/7.4.4/redhat7/yum/RPM-GPG-KEY-cloudera
+	gpgcheck=1
+	enabled=1
+	autorefresh=0
+	type=rpm-md
+
+Save and exit (:wq)
+ls
+ll – cheak persion to file read is applicable
+cat >>/etc/yum.repos.d/cloudera-manager.repo<<EOL
+[cloudera-manager]
+name=Cloudera Manager 7.4.4
+baseurl=https://archive.cloudera.com/cm7/7.4.4/redhat7/yum/
+gpgkey=https://archive.cloudera.com/cm7/7.4.4/redhat7/yum/RPM-GPG-KEY-cloudera
+gpgcheck=1
+enabled=1
+autorefresh=0
+type=rpm-md
+EOL
+
+sudo rpm --import https://archive.cloudera.com/cm7/7.4.4/redhat7/yum/RPM-GPG-KEY-cloudera
+
+ systemctl status  cloudera-manager.repo ----cheak cloudera-manager.repo enabled
+
+sudo yum clean all
+sudo yum makecache
+sudo yum repolist all
+
+install java – sudo yum install java-1.8.0-openjdk-devel -y
+
+
+
+sudo yum install cloudera-manager-server cloudera-manager-daemons
+
+sudo yum install cloudera-manager-agent cloudera-manager-daemons
+
+
+
+sudo yum install mysql-server -y  
+
+sudo service mysqld status
+sudo service mysqld start	
+sudo service mysqld status
+
+sh clustercmd.sh sudo yum install -y mysql-connector-java
+
+
+sudo yum install mariadb-server -y  
+sudo systemctl stop mariadb
+systemctl status mariadb --------(chrak status dead)
+cd /etc/cloudera-scm-server/
+vi db.properties
+           ----   db.type = mysql
+                       Db.host = internal ip (hostname -i)
+                       Db.name = harshal
+                        Db.password = 
+                        Db.setuptype = EXTERNAL
+
+cat /etc/my.cnf
+     web add---     https://docs.cloudera.com/cdp-private-cloud-base/7.1.7/installation/topics/install_cm_mariadb.html
+   select file -----mysqld  - copy all content and paste 
+
+vi /etc/my.cnf 
+
+[mysqld] datadir=/var/lib/mysql socket=/var/lib/mysql/mysql.sock transaction-isolation = READ-COMMITTED # Disabling symbolic-links is recommended to prevent assorted security risks; # to do so, uncomment this line: symbolic-links = 0 # Settings user and group are ignored when systemd is used. # If you need to run mysqld under a different user or group, # customize your systemd unit file for mariadb according to the # instructions in http://fedoraproject.org/wiki/Systemd key_buffer = 16M key_buf
+
+sudo systemctl enable mariadb
+sudo systemctl start mariadb
+sudo /usr/bin/mysql_secure_installation
+
+  Enter current password for root (enter for none):[ENTER]
+Set root password? [Y/n] y
+New password: 123
+Re-enter new password: 123
+Remove anonymous users? [Y/n] y
+Disallow root login remotely? [Y/n] n
+Remove test database and access to it? [Y/n] n
+Reload privilege tables now? [Y/n] y
+
+
+yum install mysql-connector-java
+
+mysql -u root –p                       -------- create dabases for all required services 
+
+if prob occours ------ mysql –u -p
+
+Enter password:  harshal
+
+
+
+You can see mariabd  command promt 
+
+Show databases;
+
+
+CREATE DATABASE scm DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE amon DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE rman DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE hue DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE metastore DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE schemaregistry DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE nav DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE navms DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE oozie DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+CREATE DATABASE smm DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+
+GRANT ALL ON scm.* TO 'scm'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON amon.* TO 'amon'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON rman.* TO 'rman'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON hue.* TO 'hue'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON metastore.* TO 'metastore'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON schemaregistry.* TO 'schemaregistry'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON nav.* TO 'nav'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON navms.* TO 'navms'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON oozie.* TO 'oozie'@'%' IDENTIFIED BY 'Intelotech@01';
+GRANT ALL ON smm.* TO 'smm'@'%' IDENTIFIED BY 'Intelotech@01';
+
+select host, user, password from mysql.user;
+show databases;
+exit
+cheak –[cloudera-scm-server]#  cd
+
+ systemctl status cloudera-scm-server----------------- (inactive )
+systemctl start cloudera-scm-server
+systemctl status cloudera-scm-server
+ls
+cd /var/log/cloudera-scm-server/
+tail –f cloudera-scm-server.log
+
+cheak start jetty server 
+
+coppy private address of cloudera cluster and paste it serach bar
+ex. 34.132.123.343:7180 ------ public for AWS
+show cloudera web page
+login user – admin & pass – admin
+auto tls ------security -------------------------skip now 
+add traditional bare metal cluster 
+rename cluster 
+ paste clusters internal ip  ssh port 22 see list cluster 
+ Input method – use package recomaned 
+Select jdk recomded
+Ssh username – harsh
+Authentication method – all hosts accept same private key
+Pub file choose 
+Ssh port –22
+Simultenious –10
+
+  Note : googlr clouds steps – passwordless ssh 
+               Login SSH cluster 
+Sudo su
+Cd
+Cd.
+Cd.ssh/
+Ls
+Ssh-keygen
+  Ls
+My id_rsa.pub authorized_keys
+Ll
+Chmod 600*
+Cd..
+Ls –a
+Ls –alrt                   ----------cheak permission
+Note – another cluster hav create directory .ssh 
+Chmod 600 .ssh/
+Cd .ssh/
+Vi authorized keys      -----paste keys content
+Vi id_rsa
+Ll
+Chmod 600*
+Ll
+Hostname –i
+Cat known_hosts
+Folows cloudera steps 
+Databes name given as we created mysql also username and password
+**************************************************************************************************
+     
+              karberoz install step –
+yum install openldap-clients
+Yum install krbs-workstation -y
+yum install krbs-libs -y
+yum install –y krbs-server     ----------cm cluster below steps 
+ Hostname –i
+ Hostname –f    ------fully colified host name 
+sudo nano /etc/krb5.conf
+cat >/etc/krb5.conf<< EOL
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ default_realm = INTELOTECH.COM
+ dns_lookup_realm = false
+ dns_lookup_kdc = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+
+
+ default_tgs_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 arcfour-hmac-md5
+ default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 arcfour-hmac-md5
+ permitted_enctypes =   aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 arcfour-hmac-md5
+
+
+[realms]
+ INTELOTECH.COM = {
+  kdc = hadoop3.us-central1-a.c.flash-aviary-346216.internal
+admin_server = hadoop3.us-central1-a.c.flash-aviary-346216.internal
+  max_renewable_life = 7d
+ }
+EOL
+  
+sudo nano /var/kerberos/krb5kdc/kadm5.acl
+
+vi /var/Kerberos/krb5kdc/kadm5.acl
+
+
+*/admin@INTELOTECH.COM      *
+
+sudo nano /var/kerberos/krb5kdc/kdc.conf
+
+[kdcdefaults]
+ kdc_ports = 88
+ kdc_tcp_ports = 88
+
+[realms]
+ INTELOTECH.COM = {
+ #master_key_type = aes256-cts
+acl_file = /var/kerberos/krb5kdc/kadm5.acl
+dict_file = /usr/share/dict/words
+admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+supported_enctypes = aes256-cts:normal aes128-cts:normal des3-hmac-sha1:normal arcfour-hmac:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+max_renewable_life = 7d
+ }
+
+
+sudo kdb5_util create
+"Give a master password"
+sudo service krb5kdc start
+sudo service  kadmin start
+
+sudo service krb5kdc status
+sudo service  kadmin status
+
+
+sudo kadmin.local
+addprinc cm/admin
+exit
+
+kinit cm/admin
+"password"
+klist -l
+exit
+
+
+
+cloudera web page ------security 
+     enable kerbroz 
+        
+   follows steps  
+getting started
+enter KDC information
+manage krb5.conf
+enter account credentials       username-cm/admin+ pass-intelotech@01
+command details
+configure kerberoz
+command details
+stop cluster
+stop cloudera management services
+deploy krb5.conf
+configure all services to use kerberoz
+wait for credentials to be generated
+deploy client configuration
+start cloudera management services
+start cluster
+summary
+
+
+
+if are you cheak kerberoz install or not ?
+administration – security – enabled 
+
+TLS enabled steps :
+go to metadata on google data 
+ssh username  - another user – imported-openssh-key
+select prem file key 
+systemctl restart cloudera-scm-server  
+cd /var/log/cloudera-scm-server/
+tail –f cloudera-scm-server.log
+click on finish
+
+now seen the http://34.32.232.2: HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home"7183 HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home" HYPERLINK "http://34.32.232.2:7183/cm/home"/cm/home
+
+
+note – 7180 – host ip (not secured)
+        – 7183 – host ip (secured)
+if we chance globaly all problems :
+
+click on 3 dot (:) deploye cluster 
+
+identifying security of cluster 
+
+http --------kerberoz
+https -------tls 
+ 
+
+ 
